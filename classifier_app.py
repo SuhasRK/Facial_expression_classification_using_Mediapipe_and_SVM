@@ -1,4 +1,4 @@
-from cv2 import circle
+from cv2 import circle, resize
 import streamlit as st
 import mediapipe as mp
 import cv2 as cv
@@ -159,8 +159,10 @@ elif app_mode=='Run on image':
             # print(type(results))
         face_count=1
         out_image=image.copy()
+
         circleDrawingSpec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1, color=(0,255,0))
         lineDrawingSpec = mp_drawing.DrawingSpec(thickness=1, color=(0,255,0))
+
         if results.multi_face_landmarks:
             mp_drawing.draw_landmarks(out_image,results.multi_face_landmarks[0],map_face_mesh.FACE_CONNECTIONS,circleDrawingSpec, lineDrawingSpec)
             mesh_cords=landmarksDetection(image,results)
@@ -201,7 +203,7 @@ elif app_mode=='Run on video':
     use_webcam=st.sidebar.checkbox('Use Webcam')
     record=st.sidebar.button('Record Video')
 
-    if record:
+    if record and use_webcam:
         st.checkbox("Recording",value=True)
 
     
@@ -222,8 +224,6 @@ elif app_mode=='Run on video':
     )
 
 
-    st.markdown('**Detected Faces**')
-    det_face_text=st.markdown('0')
 
     # to change the number of face detected 
     max_faces=1
@@ -236,13 +236,13 @@ elif app_mode=='Run on video':
 
     st.markdown('## Output')
 
-    stframe=st.empty
+    stframe=st.empty()
     video_file_buffer=st.sidebar.file_uploader("Upload Video",type=['mp4','mov','avi','asf','m4v'])
     tfile=tempfile.NamedTemporaryFile(delete=False)
 
     # getting input video 
     if not video_file_buffer:
-        if use_webcam:
+        if record and use_webcam:
             vid=cv.VideoCapture(0)
         else:
             vid=cv.VideoCapture(DEMO_VIDEO)
@@ -264,6 +264,117 @@ elif app_mode=='Run on video':
     st.sidebar.text('Input Video')
     st.sidebar.video(tfile.name)
 
+    fps=0
+    i=0
+
+    var1,var2,var3=st.beta_columns(3)
+
+    with var1:
+        st.markdown("**Frame Rate**")
+        var1_text=st.markdown('0')
+
+    with var2:
+        st.markdown("**Detected Faces**")
+        var2_text=st.markdown('0')
+
+    with var1:
+        st.markdown("**Width**")
+        var3_text=st.markdown('0')
+
+    st.markdown("<hr/>",unsafe_allow_html=True)
+    
+    header_text=st.markdown('')
+    landmarks_text=st.markdown('')
+
+    st.markdown('---')
+
+    st.markdown('**Prediction**')
+    pred_class=st.markdown('')
+    
+    
+    # landmarksDetection 
+    mesh_coord=[]
+
+    def landmarksDetection(img,results):
+        height,width=img.shape[:2]
+        # list[(x1,y1),(x2,y2)]
+        mesh_coord=[[int(point.x * width),int(point.y * height)] for point in results.multi_face_landmarks[0].landmark]
+        # mesh_coord=[[point.x,point.y,point.z] for point in results.multi_face_landmarks[0].landmark]
+
+
+
+        return mesh_coord
+
+    with map_face_mesh.FaceMesh(max_num_faces=max_faces,min_detection_confidence=detection_confidence,min_tracking_confidence=tracking_confidence) as face_mesh:
+        
+        prevTime=0
+        i=0
+
+        while vid.isOpened():
+            i=i+1
+            ret,frame=vid.read()
+            if not ret:
+                continue
+
+            image = frame
+            #   image=cv.resize(image,(400,400))
+
+            bgr_image=cv.cvtColor(image,cv.COLOR_RGB2BGR)
+            results=face_mesh.process(bgr_image)
+
+            currTime=time.time()
+            fps=1/(currTime-prevTime)
+            prevTime=currTime
+
+            if record:
+                out.write(frame)
+            face_count=1
+
+            var1_text.write(f"<h1 style='text-align:center;color:red'>{int(fps)}</h1>",unsafe_allow_html=True)
+            var2_text.write(f"<h1 style='text-align:center;color:red'>{face_count}</h1>",unsafe_allow_html=True)
+            var3_text.write(f"<h1 style='text-align:center;color:red'>{width}</h1>",unsafe_allow_html=True)
+
+            frame=image_resize(frame)
+
+            out_image=frame.copy()
+
+            circleDrawingSpec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1, color=(0,255,0))
+            lineDrawingSpec = mp_drawing.DrawingSpec(thickness=1, color=(0,255,0))
+
+            if results.multi_face_landmarks:
+                mp_drawing.draw_landmarks(out_image,results.multi_face_landmarks[0],map_face_mesh.FACE_CONNECTIONS,circleDrawingSpec, lineDrawingSpec)
+                mesh_cords=landmarksDetection(image,results)
+                mesh_cords=np.array(mesh_cords)
+                mesh_cords=mesh_cords.flatten()
+            # st.markdown('**Detected Landmarks**')
+            # st.markdown(len(mesh_cords)//2)
+            
+            text="Detected Landmarks"
+            header_text.write(f"<h2 style='text-align:center;color:white'>{text}</h2>",unsafe_allow_html=True)
+
+            landmarks_text.write(f"<h1 style='text-align:center;color:red'>{len(mesh_cords)//2}</h1>",unsafe_allow_html=True)
+
+            filename='SVM_optimised_model.sav'
+            loaded_model = pickle.load(open(filename, 'rb'))
+
+
+            predict=loaded_model.predict([mesh_cords.tolist()])
+            score=loaded_model.decision_function([mesh_cords.tolist()])
+
+            # print(score)
+
+            
+            
+            status=("Attentive" if predict[0]==1 and score<0 else "Bored")
+
+            
+            pred_class.write(f"<h1 style='text-align:center;color:red'>{status}</h1>",unsafe_allow_html=True)
+
+            
+
+            stframe.image(out_image,channels='BGR',use_column_width=True)
+
+            
 
 
 
