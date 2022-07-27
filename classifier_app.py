@@ -54,7 +54,7 @@ def image_resize(image,width=400,height=400,inter=cv.INTER_AREA):
     resized=cv.resize(image,dim,interpolation=inter)
     return resized
 
-app_mode=st.sidebar.selectbox('Choose the App mode',['Run on video','Run on image','About App'])
+app_mode=st.sidebar.selectbox('Choose the App mode',['About App','Run on video','Run on image'])
 
 
 if app_mode=='About App':
