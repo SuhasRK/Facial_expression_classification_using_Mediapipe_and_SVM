@@ -291,6 +291,8 @@ elif app_mode=='Run on video':
     st.markdown('**Prediction**')
     pred_class=st.markdown('')
     
+    st.markdown('**Confidence-score**')
+    score=st.markdown('')
     
     # landmarksDetection 
     mesh_coord=[]
@@ -359,16 +361,17 @@ elif app_mode=='Run on video':
 
 
             predict=loaded_model.predict([mesh_cords.tolist()])
-            score=loaded_model.decision_function([mesh_cords.tolist()])
+            conf=loaded_model.decision_function([mesh_cords.tolist()])
 
             # print(score)
 
             
             
-            status=("Attentive" if predict[0]==1 and score<0 else "Bored")
+            status=("Attentive" if predict[0]==1 and conf<-150 else "Bored")
 
             
             pred_class.write(f"<h1 style='text-align:center;color:red'>{status}</h1>",unsafe_allow_html=True)
+            score.write(f"<h1 style='text-align:center;color:red'>{int(conf)}</h1>",unsafe_allow_html=True)
 
             
 
